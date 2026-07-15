@@ -183,6 +183,48 @@
         el.style.setProperty('overflow', 'auto', 'important');
       }
     }
+    // position:fixed on <body> is the other common scroll-lock pattern.
+    if (document.body && getComputedStyle(document.body).position === 'fixed') {
+      document.body.style.setProperty('position', 'static', 'important');
+    }
+  }
+
+  // CMPs often dim the page with a separate text-free overlay (backdrop,
+  // loading spinner) that survives when the dialog itself is hidden, leaving
+  // the page unusable. After hiding a banner, sweep for such layers: fixed,
+  // near-full-viewport, high z-index, and effectively empty of text/labels.
+  // Only checks the top two levels under <body>, where backdrops live.
+  function sweepBackdrops() {
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    if (!vw || !vh || !document.body) return 0;
+
+    const layers = [];
+    for (const el of document.body.children) {
+      layers.push(el, ...el.children);
+    }
+
+    let swept = 0;
+    for (const el of layers) {
+      if (state.handled.has(el) || el.hasAttribute('data-banner-scout')) continue;
+      const style = getComputedStyle(el);
+      if (style.position !== 'fixed') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const z = parseInt(style.zIndex, 10);
+      if (Number.isNaN(z) || z < 50) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width * rect.height < 0.7 * vw * vh) continue;
+      if ((el.innerText || '').trim().length > 40) continue;
+      const hasLabeledControls = [...el.querySelectorAll('button, [role="button"]')]
+        .some((b) => (b.innerText || '').trim().length > 2);
+      if (hasLabeledControls) continue;
+
+      el.style.setProperty('display', 'none', 'important');
+      el.setAttribute('data-banner-scout', 'backdrop');
+      state.handled.add(el);
+      swept++;
+    }
+    return swept;
   }
 
   function hideBanner(el, textLength) {
@@ -192,8 +234,10 @@
     const target = expandTarget(el, textLength);
     target.style.setProperty('display', 'none', 'important');
     target.setAttribute('data-banner-scout', 'hidden');
-    // Full-screen cookie walls usually lock scrolling; release it.
-    if (coverage > 0.4) unlockScrollIfNeeded();
+    const swept = sweepBackdrops();
+    // Cookie walls and modal CMPs lock scrolling; release it.
+    if (coverage > 0.4 || swept > 0) unlockScrollIfNeeded();
+    return swept;
   }
 
   // ---------------------------------------------------------------------
@@ -269,13 +313,12 @@
     for (const { el, verdict } of outermost) {
       state.handled.add(el);
       const shouldHide = state.hidingEnabled && verdict.hideable;
-      if (shouldHide) hideBanner(el, verdict.text.length);
-      logSighting(
-        el,
-        verdict.text,
-        shouldHide,
-        verdict.note || (state.hidingEnabled ? '' : 'hiding disabled — logged only')
-      );
+      let note = verdict.note || (state.hidingEnabled ? '' : 'hiding disabled — logged only');
+      if (shouldHide) {
+        const swept = hideBanner(el, verdict.text.length);
+        if (swept) note = (note ? note + ' ' : '') + `(+${swept} backdrop layer${swept > 1 ? 's' : ''})`;
+      }
+      logSighting(el, verdict.text, shouldHide, note);
     }
   }
 
