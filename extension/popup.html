@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --fg: #1a1a1a;
+      --fg-soft: #666;
+      --bg: #fff;
+      --bg-soft: #f4f4f5;
+      --border: #e2e2e5;
+      --accent: #3d6b47;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #ececec;
+        --fg-soft: #9a9a9a;
+        --bg: #1e1e20;
+        --bg-soft: #2a2a2d;
+        --border: #3a3a3e;
+        --accent: #7fbf8e;
+      }
+    }
+    body {
+      width: 360px;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { margin: 0; font-size: 15px; }
+    header p { margin: 3px 0 0; color: var(--fg-soft); font-size: 12px; }
+    main { padding: 12px 16px 16px; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 0;
+    }
+    .row .label { font-weight: 600; }
+    .row .sub { color: var(--fg-soft); font-size: 12px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin: 10px 0 12px;
+    }
+    .stat {
+      background: var(--bg-soft);
+      border-radius: 8px;
+      padding: 8px 4px;
+      text-align: center;
+    }
+    .stat b { display: block; font-size: 16px; }
+    .stat span { color: var(--fg-soft); font-size: 10.5px; }
+
+    h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--fg-soft);
+      margin: 12px 0 6px;
+    }
+    #log { max-height: 220px; overflow-y: auto; }
+    .entry {
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .entry:last-child { border-bottom: none; }
+    .entry .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .entry .host { font-weight: 600; }
+    .entry .when { color: var(--fg-soft); white-space: nowrap; }
+    .entry .snippet {
+      color: var(--fg-soft);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .entry .badge {
+      display: inline-block;
+      font-size: 10px;
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 5px;
+      background: var(--bg-soft);
+      color: var(--fg-soft);
+    }
+    .empty { color: var(--fg-soft); padding: 10px 0; }
+
+    button {
+      font: inherit;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      color: var(--fg);
+      border-radius: 7px;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--fg-soft); }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .actions button { flex: 1; }
+
+    .switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; position: absolute; z-index: 1; }
+    .switch .track {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 11px;
+      transition: background 0.15s;
+    }
+    .switch .track::after {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--bg);
+      top: 2px; left: 2px;
+      transition: transform 0.15s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .switch input:checked + .track { background: var(--accent); }
+    .switch input:checked + .track::after { transform: translateX(18px); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🍪 Banner Scout</h1>
+    <p>Sees cookie banners. Hides them. Never consents.</p>
+  </header>
+  <main>
+    <div class="row">
+      <div>
+        <div class="label">Hide banners</div>
+        <div class="sub">Off = log-only mode</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="hidingEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+    <div class="row">
+      <div>
+        <div class="label" id="siteHost">this site</div>
+        <div class="sub">Scout enabled on this site</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="siteEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="statToday">0</b><span>today</span></div>
+      <div class="stat"><b id="statSeen">0</b><span>seen</span></div>
+      <div class="stat"><b id="statHidden">0</b><span>hidden</span></div>
+      <div class="stat"><b id="statSites">0</b><span>sites</span></div>
+    </div>
+
+    <h2>Recent banners</h2>
+    <div id="log"><div class="empty">Nothing logged yet.</div></div>
+
+    <div class="actions">
+      <button id="exportBtn">Export JSON</button>
+      <button id="clearBtn">Clear log</button>
+    </div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

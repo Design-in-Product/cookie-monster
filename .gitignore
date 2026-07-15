@@ -1,0 +1,4 @@
+.DS_Store
+
+# Legacy chat-era prototype, kept on disk for reference but not part of the project
+smart-cookie-handler/
