@@ -22,6 +22,25 @@ real nuisance?" from a vibe into data. After a few weeks of browsing, the
 popup (and the JSON export) will show how many banners actually appeared,
 on which sites, and which ones the heuristics weren't confident about.
 
+### Global Privacy Control
+
+As of v0.2.0 the extension also signals **Global Privacy Control** on every
+request — the affirmative "do not sell or share my data" opt-out that carries
+legal force under CCPA/CPRA and similar regimes. This is the honest complement
+to hiding: we don't just stay silent, we say no in the standard way. Two
+surfaces are set:
+
+- `Sec-GPC: 1` HTTP request header (via a `declarativeNetRequest` rule) — the
+  half servers act on.
+- `navigator.globalPrivacyControl === true` (via a `document_start` MAIN-world
+  script) — the half client-side scripts read.
+
+**Permission cost:** the header rule requires `<all_urls>` host permission,
+which reintroduces the broad permission v0.1.0 deliberately shed. That's a
+deliberate trade — GPC without the header is only half the signal. GPC is
+currently global and always-on when the extension is enabled; a toggle and
+per-site control are on the roadmap.
+
 ## Safety posture
 
 Detection is deliberately conservative, because hiding the wrong element is
@@ -52,9 +71,11 @@ they're the ambiguous tail this experiment exists to measure.
 
 ## Roadmap (each step earned by the data)
 
-- [ ] **Global Privacy Control**: send the `Sec-GPC` header / set
-      `navigator.globalPrivacyControl` so non-consent is also signaled
+- [x] **Global Privacy Control** *(v0.2.0)*: sends the `Sec-GPC` header and
+      sets `navigator.globalPrivacyControl` so non-consent is signaled
       affirmatively where it has legal force.
+- [ ] **GPC toggle / per-site control**: currently global and always-on;
+      needs a background worker to toggle the ruleset at runtime.
 - [ ] **Iframe CMPs**: banners rendered inside cross-origin iframes
       (e.g. Sourcepoint) are currently not detected (top frame only).
 - [ ] **Cookie-wall detection**: flag sites that block content until consent,
